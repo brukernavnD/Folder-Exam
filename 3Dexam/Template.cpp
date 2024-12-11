@@ -1,17 +1,17 @@
 #include <iostream>
-#include <vector>
 
-#include "Actors/BSplineTensorProductSurface.h"
 #include "glm/ext/matrix_clip_space.hpp"
-#include "Core/Camera.h"
+#include "Components/CameraComponent.h"
 #include "Core/Helpers.h"
-#include "Core/World.h"
+#include "Systems/WorldSystem.h"
 #include "Core/Shader/Shaders.h"
 
-#include "Core/PlayerController.h"
-#include "Actors/ContainerBox.h"
-#include "Actors/PointCloudSurface.h"
-#include "Actors/Sphere.h"
+#include "Components/PlayerControllerComponent.h"
+#include "Data/PlaneRenderingData.h"
+#include "Entities/BallEntity.h"
+#include "Entities/BoxEntity.h"
+#include "Entities/StaticEmitterEntity.h"
+#include "Entities/StaticEntity.h"
 
 // callback functions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -21,7 +21,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
 //the game world
-World GameWorld;
+WorldSystem GameWorld;
 
 //the shader program
 unsigned int ShaderProgram;
@@ -29,7 +29,8 @@ unsigned int ShaderProgram;
 //the model key location for the shader program
 GLint ModelKeyLocation;
 
-
+//the current valid class id for a world object
+int CurrentValidClassID = 0;
 
 //function to create a glfw window
 static GLFWwindow* MyCreateWindow()
@@ -78,45 +79,31 @@ int main()
 	//seed the random number generator
 	srand(time(nullptr));
 
-	//set the camera position
-	GameWorld.GetPlayerCamera()->Position = { CBoxCen.x + CBoxSize.x / 2, CBoxCen.y + CBoxSize.y / 2 + 50, CBoxCen.z + CBoxSize.z / 2 + 50 };
+	//spawn a static entity
+	GetWorld()->SpawnObject<StaticEntity>(PlaneRenderingID, glm::vec3(0, -10, 0), glm::vec3(1000));
 
-	////create the container box
-	//ContainerBox_ ContainerBox = ContainerBox_(CBoxCen, CBoxSize);
+    //spawn a static emitter entity
+	GetWorld()->SpawnObject<StaticEmitterEntity>(glm::vec3(0, 20, 0), glm::vec3(10, 10, 10));
 
-	//create the point cloud surface
-	PointCloudSurface_ PointCloudSurface = PointCloudSurface_(glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+	//spawn a box entity
+	const BoxEntity* LocBox = GetWorld()->SpawnObject<BoxEntity>(glm::vec3(150, 70, 150), glm::vec3(100));
 
-	//create the b-spline tensor product surface
-	BSplineTensorProductSurface_ BSplineTensorProductSurface = BSplineTensorProductSurface_(glm::vec3(-450, 0, 0), glm::vec3(1, 1, 1));
+     //create extra spheres
+	for (int i = 0; i < 500; i++)
+	{
+        //the spacing for the extra spheres
+        const int Spacing = LocBox->TransformComp.Scale.x - 1;
 
-	//storage for the knot vectors of the b-spline tensor product surface
-	const std::vector<float> UKnots = {0, 0, 0, 1, 2, 2, 2};
-	const std::vector<float> VKnots = {0, 0, 0, 1, 1, 1};
+		//create a position for the sphere
+		const glm::vec3 SpherePosition = { LocBox->TransformComp.Position.x + rand() % Spacing - Spacing / 2, LocBox->TransformComp.Position.y + rand() % Spacing - Spacing / 2, LocBox->TransformComp.Position.z + rand() % Spacing - Spacing / 2 };
 
-	////add the container box to the world's terrain
-	//GameWorld.Boxes.emplace_back(&ContainerBox);
+		//create a random velocity for the sphere
+        const glm::vec3 SphereVelocity = { RandomFloat(-10, 10), RandomFloat(-10, 10), RandomFloat(-10, 10) };
 
-	//add the point cloud to the world's list of objects
-	GameWorld.WorldObjects.emplace_back(&PointCloudSurface);
+		//spawn the ball entity
+		GetWorld()->SpawnObject<BallEntity>(SpherePosition, glm::vec3(1), SphereVelocity);
+	}
 
-	//set the point cloud surface pointer of the world
-	GameWorld.PointCloudSurface = &PointCloudSurface;
-
-    //add the b-spline tensor product surface
-	GameWorld.WorldObjects.emplace_back(&BSplineTensorProductSurface);
-
-    //add the container box class to the renderer
-	GetWorld()->Renderer.AddBuffers(ContainerBox_::CreateVertices(), ContainerBox_::CreateIndices());
-
-	//add the point cloud class to the renderer
-	GetWorld()->Renderer.AddBuffers(PointCloudSurface_::CreateVertices(), PointCloudSurface_::CreateIndices());
-
-	//add the b-spline tensor product surface class to the renderer
-	GetWorld()->Renderer.AddBuffers(BSplineTensorProductSurface_::CreateVertices(BSplineTensorProductSurface_::GetControlPoints(), UKnots, VKnots), BSplineTensorProductSurface_::CreateIndices());
-
-	//add the sphere class to the renderer
-	GetWorld()->Renderer.AddBuffers(Sphere_::CreateVertices(), Sphere_::CreateIndices());
 
 	//set the position of the light source
 	glm::vec3 LightPos = GameWorld.GetPlayerCamera()->Position;
@@ -202,25 +189,25 @@ void framebuffer_size_callback(GLFWwindow* window, const int width, const int he
 //called whenever the mouse is moved
 void mouse_callback(GLFWwindow* window, const double XPos, const double YPos)
 {
-	GetWorld()->PlayerController->ProcessMouseInput(float(XPos), float(YPos));
+	GetWorld()->GetPlayerController()->ProcessMouseInput(float(XPos), float(YPos));
 }
 
 //called whenever a key is pressed
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	GetWorld()->PlayerController->ProcessKeyboardInput(window, key, scancode, action, mods);
+	GetWorld()->GetPlayerController()->ProcessKeyboardInput(window, key, scancode, action, mods);
 }
 
 //called whenever the mouse scroll wheel is moved
 void scroll_callback(GLFWwindow* window, double xoffset, const double yoffset)
 {
-    GetWorld()->PlayerController->ProcessMouseScroll(float(yoffset));
+    GetWorld()->GetPlayerController()->ProcessMouseScroll(float(yoffset));
 }
 
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	//get the camera of the player
-	Camera* PlayerCamera = GetWorld()->GetPlayerCamera();
+	CameraComponent* PlayerCamera = GetWorld()->GetPlayerCamera();
 
 	//check if the left mouse button was pressed
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
@@ -232,15 +219,16 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 		glm::vec3 FrontVec = PlayerCamera->Front;
 
 		//get the vertices of the point cloud
-		std::vector<Vertex*> TestVertices = GetWorld()->Renderer.GetVertexPointers(PointCloudSurfaceClassID);
+        const std::vector<Vertex> TestVertices = GetWorld()->GetRenderingSystem()->GetWorldVertices(GetWorld()->GetEntityOfClass<StaticEntity>());
 
 		//iterate through the vertices in sets of 3
 		for (int i = 0; i < TestVertices.size(); i += 3)
 		{
+   
 			//get the current triangle
-			const Vertex& P1 = *TestVertices[i];
-			const Vertex& P2 = *TestVertices[i + 1];
-			const Vertex& P3 = *TestVertices[i + 2];
+			const Vertex& P1 = TestVertices[i % 3];
+			const Vertex& P2 = TestVertices[(i + 1) % 3];
+			const Vertex& P3 = TestVertices[(i + 2) % 3];
 
 			//storage for the collision point
 			Vertex CollisionPoint = Vertex(glm::vec3(0, 0, 0));
@@ -249,7 +237,7 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			if (testRayThruTriangle(P1, P2, P3, Vertex(CameraPos), Vertex(CameraPos + FrontVec * CullingDistance), CollisionPoint))
 			{
 				//spawn a sphere at the collision point
-				Sphere_* NewSphere = GetWorld()->SpawnObject<Sphere_>(CollisionPoint.Position + glm::vec3(0, 5, 0) , glm::vec3(5, 5, 5));
+				BallEntity* NewSphere = GetWorld()->SpawnObject<BallEntity>(CollisionPoint.Position + glm::vec3(0, 1, 0) , glm::vec3(5));
 
 				////get the front vector of the camera projected onto the normal of the triangle
 				//glm::vec3 ProjectedFront = normalize(FrontVec - CollisionPoint.Normal * dot(FrontVec, CollisionPoint.Normal));
@@ -262,4 +250,5 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			}
 		}
 	}
+
 }

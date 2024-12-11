@@ -1,15 +1,17 @@
 ﻿#include "Helpers.h"
 #include <iostream>
-#include "Model/Vertex.h"
-#include "World.h"
-#include "WorldObject.h"
+#include <random>
 
-World* GetWorld()
+#include "Model/Vertex.h"
+#include "../Systems/WorldSystem.h"
+#include "../Entities/Entity.h"
+
+WorldSystem* GetWorld()
 {
 	return &GameWorld;
 }
 
-GLenum glCheckError_(const WorldObject* InWorldObject, const char* function, const int line)
+GLenum glCheckError_(const Entity* InWorldObject, const char* function, const int line)
 {
 	GLenum errorCode;
 	while ((errorCode = glGetError()) != GL_NO_ERROR)
@@ -41,6 +43,30 @@ GLenum glCheckError_(const WorldObject* InWorldObject, const char* function, con
 int IDCounter()
 {
 	return GameWorld.CurrentValidID++;
+}
+
+int ClassIDCounter()
+{
+	return CurrentValidClassID++;
+}
+
+int RenderDataIDCounter()
+{
+	//return the current valid rendering id
+	return GameWorld.GetRenderingSystem()->GetNewValidRenderingID();
+}
+
+int RandomInt(const int min, const int max)
+{
+	static bool init = false;
+	static std::random_device rd;
+	static std::mt19937 eng;
+	static std::uniform_int_distribution<int> dist(min, max);
+	if (!init) {
+		eng.seed(rd()); // Seed random engine
+		init = true;
+	}
+	return dist(eng);
 }
 
 float RandomFloat(const float Min, const float Max)
