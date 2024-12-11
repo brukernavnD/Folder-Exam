@@ -99,11 +99,11 @@ void WorldSystem::TickWorld(const float DeltaTime)
 	for (BallEntity* Entity : BallEntities)
 	{
 		//add their collision node component to the list
-		CollisionNodeComponents.push_back(&Entity->BallCollisioComponent);
+		CollisionNodeComponents.push_back(&Entity->BallCollisionComponent);
 	}
 
 	//simulate collision for the ball components
-	SphereSystem::CheckCollisions(GetEntityOfClass<BoxEntity>(), CollisionNodeComponents);
+	SphereSystem::CheckCollisions(GetEntityOfClass<BoxEntity>(), BallEntities);
 }
 
 void WorldSystem::UpdateWorld(const float InDeltaTime)

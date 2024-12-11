@@ -5,6 +5,7 @@
 
 #include "../Components/CollisionNodeComponent.h"
 #include "../Entities/BoxEntity.h"
+#include "../Entities/BallEntity.h"
 #include "../Systems/WorldSystem.h"
 #include "../Systems/SphereSystem.h"
 
@@ -31,7 +32,7 @@ CollisionTreeNode::CollisionTreeNode(const glm::vec3 Position, const glm::vec3 H
 
 }
 
-CollisionTreeNode::CollisionTreeNode(const glm::vec3 InPosition, const glm::vec3 InHalfSize, const std::vector<CollisionNodeComponent*>& InSpheres, CollisionTreeNode* InParent) : Parent(InParent), Position(InPosition), HalfSize(InHalfSize)
+CollisionTreeNode::CollisionTreeNode(const glm::vec3 InPosition, const glm::vec3 InHalfSize, const std::vector<BallEntity*>& InSpheres, CollisionTreeNode* InParent) : Parent(InParent), Position(InPosition), HalfSize(InHalfSize)
 {
 	//check if the amount of spheres is less than or equal to the maximum amount of spheres
 	if (InSpheres.size() <= MaxSpheres)
@@ -69,7 +70,7 @@ CollisionTreeNode::CollisionTreeNode(const glm::vec3 InPosition, const glm::vec3
 	}
 
 	//vector to store the spheres that should be assigned to the children (0 = bottom left, 1 = bottom right, 2 = top left, 3 = top right)
-	std::vector<std::vector<CollisionNodeComponent*>> SpheresToAssign(TreeType);
+	std::vector<std::vector<BallEntity*>> SpheresToAssign(TreeType);
 
 	//allocate space for the spheres to assign
 	for (int i = 0; i < TreeType; i++)
@@ -78,31 +79,31 @@ CollisionTreeNode::CollisionTreeNode(const glm::vec3 InPosition, const glm::vec3
 	}
 
 	//iterate through all spheres
-	for (CollisionNodeComponent* Sphere : InSpheres)
+	for (BallEntity* Sphere : InSpheres)
 	{
 		//check if the sphere is to be assigned to the bottom left child
-		if (Sphere->Position.x <= Position.x && Sphere->Position.z <= Position.z)
+		if (Sphere->BallCollisionComponent.Position.x <= Position.x && Sphere->BallCollisionComponent.Position.z <= Position.z)
 		{
 			//add the sphere to the bottom left child
 			SpheresToAssign[0].push_back(Sphere);
 		}
 
 		//check if the sphere is to be assigned to the bottom right child
-		if (Sphere->Position.x > Position.x && Sphere->Position.z <= Position.z)
+		if (Sphere->BallCollisionComponent.Position.x > Position.x && Sphere->BallCollisionComponent.Position.z <= Position.z)
 		{
 			//add the sphere to the bottom right child
 			SpheresToAssign[1].push_back(Sphere);
 		}
 
 		//check if the sphere is to be assigned to the top left child
-		if (Sphere->Position.x <= Position.x && Sphere->Position.z > Position.z)
+		if (Sphere->BallCollisionComponent.Position.x <= Position.x && Sphere->BallCollisionComponent.Position.z > Position.z)
 		{
 			//add the sphere to the top left child
 			SpheresToAssign[2].push_back(Sphere);
 		}
 
 		//check if the sphere is to be assigned to the top right child
-		if (Sphere->Position.x > Position.x && Sphere->Position.z > Position.z)
+		if (Sphere->BallCollisionComponent.Position.x > Position.x && Sphere->BallCollisionComponent.Position.z > Position.z)
 		{
 			//add the sphere to the top right child
 			SpheresToAssign[3].push_back(Sphere);
@@ -128,10 +129,10 @@ bool CollisionTreeNode::IsLeaf() const
 	return Children.empty();
 }
 
-bool CollisionTreeNode::CheckCollision(const CollisionNodeComponent* InSphere) const
+bool CollisionTreeNode::CheckCollision(const BallEntity* InSphere) const
 {
 	//get the distance between the sphere and the node
-	const glm::vec3 Distance = InSphere->Position - Position;
+	const glm::vec3 Distance = InSphere->BallCollisionComponent.Position - Position;
 
 	//get the distance between the sphere and the node
 	const glm::vec3 DistanceClamped = clamp(Distance, -HalfSize, HalfSize);
@@ -140,13 +141,13 @@ bool CollisionTreeNode::CheckCollision(const CollisionNodeComponent* InSphere) c
 	const glm::vec3 ClosestPoint = Position + DistanceClamped;
 
 	//get the distance between the sphere and the node
-	const glm::vec3 ClosestPointDistance = ClosestPoint - InSphere->Position;
+	const glm::vec3 ClosestPointDistance = ClosestPoint - InSphere->BallCollisionComponent.Position;
 
 	//get the distance between the sphere and the node
 	const float Length = sqrt(ClosestPointDistance.x * ClosestPointDistance.x + ClosestPointDistance.y * ClosestPointDistance.y + ClosestPointDistance.z * ClosestPointDistance.z);
 
 	//check if the length is less than or equal to the radius of the sphere
-	if (Length <= InSphere->Scale.x)
+	if (Length <= InSphere->BallCollisionComponent.Scale.x)
 	{
 		//return true
 		return true;
@@ -156,68 +157,49 @@ bool CollisionTreeNode::CheckCollision(const CollisionNodeComponent* InSphere) c
 	return false;
 }
 
-void CollisionTreeNode::AssignObjects(const std::vector<CollisionNodeComponent*>& InSpheres)
+void CollisionTreeNode::AssignObjects(const std::vector<BallEntity*>& InSpheres)
 {
 	//check if the node is a leaf node
 	if (IsLeaf())
 	{
 		//add the spheres to the node
 		/*Spheres = */std::copy(InSpheres.begin(), InSpheres.end(), Spheres.begin());
-
-		//print the amount of spheres in the node
-		std::cout << "Spheres: " << Spheres.size() << '\n';
 	}
 	else
 	{
 		//vector to store the spheres that should be assigned to the children (0 = bottom left, 1 = bottom right, 2 = top left, 3 = top right)
-		std::vector<std::vector<CollisionNodeComponent*>> SpheresToAssign(4);
+		std::vector<std::vector<BallEntity*>> SpheresToAssign(4);
 
 		//iterate through all spheres
-		for (CollisionNodeComponent* Sphere : InSpheres)
+		for (BallEntity* Sphere : InSpheres)
 		{
-			//bool for whether or not the sphere has been assigned to a child
-			bool SphereAssigned = false;
 
 			//check if the sphere is to be assigned to the bottom left child
-			if (Sphere->Position.x <= Position.x && Sphere->Position.z <= Position.z)
+			if (Sphere->BallCollisionComponent.Position.x <= Position.x && Sphere->BallCollisionComponent.Position.z <= Position.z)
 			{
 				//add the sphere to the bottom left child
 				SpheresToAssign[0].push_back(Sphere);
-				SphereAssigned = true;
 			}
 
 			//check if the sphere is to be assigned to the bottom right child
-			if (Sphere->Position.x > Position.x && Sphere->Position.z <= Position.z)
+			if (Sphere->BallCollisionComponent.Position.x > Position.x && Sphere->BallCollisionComponent.Position.z <= Position.z)
 			{
 				//add the sphere to the bottom right child
 				SpheresToAssign[1].push_back(Sphere);
-				SphereAssigned = true;
 			}
 
 			//check if the sphere is to be assigned to the top left child
-			if (Sphere->Position.x <= Position.x && Sphere->Position.z > Position.z)
+			if (Sphere->BallCollisionComponent.Position.x <= Position.x && Sphere->BallCollisionComponent.Position.z > Position.z)
 			{
 				//add the sphere to the top left child
 				SpheresToAssign[2].push_back(Sphere);
-				SphereAssigned = true;
 			}
 
 			//check if the sphere is to be assigned to the top right child
-			if (Sphere->Position.x > Position.x && Sphere->Position.z > Position.z)
+			if (Sphere->BallCollisionComponent.Position.x > Position.x && Sphere->BallCollisionComponent.Position.z > Position.z)
 			{
 				//add the sphere to the top right child
 				SpheresToAssign[3].push_back(Sphere);
-				SphereAssigned = true;
-			}
-
-			//check if the sphere has not been assigned to a child
-			if (!SphereAssigned)
-			{
-				//print the position of the sphere
-				std::cout << "Sphere: " << Sphere->Position.x << ", " << Sphere->Position.y << ", " << Sphere->Position.z << '\n' << '\n';
-
-				//add the sphere to the node
-				this->Spheres.push_back(Sphere);
 			}
 		}
 

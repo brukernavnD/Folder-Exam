@@ -19,7 +19,7 @@ public:
 	//components
 	MeshComponent BallMeshComponent = MeshComponent(this, SphereRenderingID);
 	VelocityComponent BallVelocityComponent = VelocityComponent(this, glm::vec3(0));
-	CollisionNodeComponent BallCollisioComponent = CollisionNodeComponent(this, glm::vec3(0), glm::vec3(1));
+	CollisionNodeComponent BallCollisionComponent = CollisionNodeComponent(this, glm::vec3(0), glm::vec3(1));
 };
 
 
